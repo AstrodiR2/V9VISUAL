@@ -1,0 +1,862 @@
+-- [[ V9 VISUALS: FULL SCRIPT + SCATTER, REALTIME RGB & DOULI UPDATE ]]
+
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+
+local Players = game:GetService("Players")
+
+local TweenService = game:GetService("TweenService")
+
+local RunService = game:GetService("RunService")
+
+local Lighting = game:GetService("Lighting")
+
+local lp = Players.LocalPlayer
+
+
+local defaultLighting = {
+
+    Ambient = Lighting.Ambient,
+
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+
+    FogColor = Lighting.FogColor
+
+}
+
+
+-- === [ НАСТРОЙКИ ] ===
+
+_G.VisualColor = Color3.fromRGB(0, 255, 0)
+
+_G.RGBEnabled = false
+
+_G.BlurEnabled = true
+
+_G.BlurIntensity = 150
+
+_G.DynFOV = false
+
+
+-- Движение
+
+_G.MovementEffects = true
+
+
+-- Окружение
+
+_G.SkyboxEnabled = false
+
+_G.SkyboxColor = Color3.fromRGB(0, 0, 0)
+
+
+-- Партиклы
+
+_G.ParticlesEnabled = true
+
+_G.ParticleCount = 12
+
+_G.ParticleRadius = 4
+
+_G.ParticleSpeed = 5
+
+_G.ParticleHeight = 4.5
+
+_G.ParticleWidth = 1
+
+_G.ParticleStretch = 0.5
+
+_G.ScatteredParticles = false -- НОВОЕ: Разброс партиклов
+
+
+-- Трейлы
+
+_G.TrailsEnabled = false
+
+_G.TrailLifetime = 0.5
+
+_G.TrailSpeed = 0.5
+
+_G.TrailParts = {"Arms"}
+
+
+-- Аксессуары
+
+_G.CurrentAcc = "None"
+
+_G.AccY = 0.7
+
+_G.AccScale = 1.5
+
+_G.AccRot = 0
+
+
+-- Бой
+
+_G.HitboxEnabled = false
+
+_G.HitboxSize = 10
+
+_G.HitboxTrans = 0.7
+
+_G.ESP_Boxes = false
+
+_G.ESP_Tracers = false
+
+_G.ESP_Names = false
+
+
+-- Снег
+
+_G.SnowEnabled = false
+
+_G.SnowColor = Color3.fromRGB(255, 255, 255)
+
+_G.SnowSize = 0.2
+
+_G.SnowFallSpeed = 25
+
+_G.SnowWait = 0.1
+
+
+-- === [ СИСТЕМА ESP ] ===
+
+local function createESP(plr)
+
+    local box = Drawing.new("Square")
+
+    box.Visible = false
+
+    box.Thickness = 1
+
+    box.Filled = false
+
+    
+
+    local tracer = Drawing.new("Line")
+
+    tracer.Visible = false
+
+    tracer.Thickness = 1
+
+    
+
+    local name = Drawing.new("Text")
+
+    name.Visible = false
+
+    name.Size = 16
+
+    name.Center = true
+
+    name.Outline = true
+
+
+    local conn
+
+    conn = RunService.RenderStepped:Connect(function()
+
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr ~= lp then
+
+            local hrp = plr.Character.HumanoidRootPart
+
+            local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+
+            
+
+            if onScreen then
+
+                if _G.ESP_Boxes then
+
+                    box.Size = Vector2.new(2000 / pos.Z, 3000 / pos.Z)
+
+                    box.Position = Vector2.new(pos.X - box.Size.X / 2, pos.Y - box.Size.Y / 2)
+
+                    box.Color = _G.VisualColor
+
+                    box.Visible = true
+
+                else box.Visible = false end
+
+                
+
+                if _G.ESP_Tracers then
+
+                    tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+
+                    tracer.To = Vector2.new(pos.X, pos.Y)
+
+                    tracer.Color = _G.VisualColor
+
+                    tracer.Visible = true
+
+                else tracer.Visible = false end
+
+
+                if _G.ESP_Names then
+
+                    name.Position = Vector2.new(pos.X, pos.Y - (3500 / pos.Z) / 2 - 20)
+
+                    name.Text = plr.Name
+
+                    name.Color = Color3.new(1,1,1)
+
+                    name.Visible = true
+
+                else name.Visible = false end
+
+            else
+
+                box.Visible = false; tracer.Visible = false; name.Visible = false
+
+            end
+
+        else
+
+            box.Visible = false; tracer.Visible = false; name.Visible = false
+
+            if not plr.Parent then 
+
+                box:Remove(); tracer:Remove(); name:Remove(); conn:Disconnect() 
+
+            end
+
+        end
+
+    end)
+
+end
+
+
+-- === [ ТРЕЙЛЫ ] ===
+
+local activeTrails = {}
+
+local function addTrail(char)
+
+    for _, t in pairs(activeTrails) do if t then t:Destroy() end end
+
+    table.clear(activeTrails)
+
+
+    local function makeT(part, groupName)
+
+        if not part then return end
+
+        local a0 = Instance.new("Attachment", part)
+
+        a0.Position = Vector3.new(0, -0.5, 0)
+
+        local a1 = Instance.new("Attachment", part)
+
+        a1.Position = Vector3.new(0, 0.5, 0)
+
+        local tr = Instance.new("Trail", part)
+
+        tr.Attachment0 = a0 tr.Attachment1 = a1
+
+        tr.Name = groupName
+
+        tr.Enabled = false
+
+        table.insert(activeTrails, tr)
+
+    end
+
+
+    makeT(char:WaitForChild("Left Arm", 2) or char:FindFirstChild("LeftUpperArm"), "Arms")
+
+    makeT(char:WaitForChild("Right Arm", 2) or char:FindFirstChild("RightUpperArm"), "Arms")
+
+    makeT(char:WaitForChild("Left Leg", 2) or char:FindFirstChild("LeftUpperLeg"), "Legs")
+
+    makeT(char:WaitForChild("Right Leg", 2) or char:FindFirstChild("RightUpperLeg"), "Legs")
+
+    makeT(char:WaitForChild("Torso", 2) or char:FindFirstChild("UpperTorso"), "Torso")
+
+
+    RunService.Heartbeat:Connect(function()
+
+        if not char.Parent then return end
+
+        for _, tr in pairs(activeTrails) do
+
+            if tr and tr.Parent then
+
+                local isSelected = table.find(_G.TrailParts, tr.Name) ~= nil
+
+                tr.Enabled = _G.TrailsEnabled and isSelected
+
+                tr.Lifetime = _G.TrailLifetime
+
+                tr.WidthScale = NumberSequence.new(0.5, 0.5 - math.clamp(_G.TrailSpeed, 0, 0.5))
+
+                tr.Color = ColorSequence.new(_G.VisualColor)
+
+            end
+
+        end
+
+    end)
+
+end
+
+
+-- === [ ФУНКЦИИ ВИЗУАЛА ] ===
+
+local activeRGBObjects = {} -- НОВОЕ: Таблица для реал-тайм RGB клонов и волн
+
+
+local function setNoCol(p)
+
+    p.CanCollide = false p.CanTouch = false p.CanQuery = false p.Anchored = true p.Massless = true
+
+end
+
+
+local function createGhost(char)
+
+    if not _G.MovementEffects then return end
+
+    if not char:FindFirstChild("HumanoidRootPart") then return end
+
+    char.Archivable = true
+
+    local ghost = char:Clone()
+
+    char.Archivable = false
+
+    ghost.Parent = workspace
+
+    for _, obj in pairs(ghost:GetDescendants()) do
+
+        if obj:IsA("BasePart") then
+
+            setNoCol(obj)
+
+            obj.Material = Enum.Material.Neon
+
+            obj.Color = _G.VisualColor
+
+            obj.Transparency = 0.5
+
+            table.insert(activeRGBObjects, obj) -- Добавляем в реал-тайм RGB
+
+            TweenService:Create(obj, TweenInfo.new(0.8), {Transparency = 1}):Play()
+
+        elseif not obj:IsA("SpecialMesh") then obj:Destroy() end
+
+    end
+
+    ghost:PivotTo(char.HumanoidRootPart.CFrame)
+
+    task.delay(0.8, function() ghost:Destroy() end)
+
+end
+
+
+local function spawnWave(char)
+
+    if not _G.MovementEffects then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    if not root then return end
+
+    local params = RaycastParams.new()
+
+    params.FilterDescendantsInstances = {char}
+
+    local ray = workspace:Raycast(root.Position, Vector3.new(0, -20, 0), params)
+
+    local floorPos = ray and ray.Position or (root.Position - Vector3.new(0, 3, 0))
+
+    local p = Instance.new("Part", workspace)
+
+    p.Size = Vector3.new(1, 0.1, 1)
+
+    p.Position = floorPos + Vector3.new(0, 0.05, 0)
+
+    p.Color = _G.VisualColor
+
+    p.Material = Enum.Material.Neon
+
+    setNoCol(p)
+
+    table.insert(activeRGBObjects, p) -- Добавляем в реал-тайм RGB
+
+    local m = Instance.new("SpecialMesh", p)
+
+    m.MeshType = Enum.MeshType.Sphere
+
+    TweenService:Create(m, TweenInfo.new(0.8), {Scale = Vector3.new(35, 0, 35)}):Play()
+
+    TweenService:Create(p, TweenInfo.new(0.8), {Transparency = 1}):Play()
+
+    task.delay(0.8, function() p:Destroy() end)
+
+end
+
+
+local playerParts = {}
+
+local function clearParts()
+
+    for _, g in pairs(playerParts) do for _, p in pairs(g) do p:Destroy() end end
+
+    table.clear(playerParts)
+
+end
+
+
+local function createParts(player)
+
+    if not _G.ParticlesEnabled then return end
+
+    local parts = {}
+
+    for i = 1, _G.ParticleCount do
+
+        local p = Instance.new("Part", workspace)
+
+        p.Material = Enum.Material.Neon
+
+        setNoCol(p)
+
+        table.insert(parts, p)
+
+    end
+
+    playerParts[player] = parts
+
+end
+
+
+-- НОВОЕ: Удаление партиклов при выходе игрока
+
+Players.PlayerRemoving:Connect(function(plr)
+
+    if playerParts[plr] then
+
+        for _, p in pairs(playerParts[plr]) do p:Destroy() end
+
+        playerParts[plr] = nil
+
+    end
+
+end)
+
+
+-- === [ РЕНДЕР ] ===
+
+local accPart = Instance.new("Part")
+
+accPart.Name = "V9_Accessory"
+
+accPart.Material = Enum.Material.Neon
+
+setNoCol(accPart)
+
+local accMesh = Instance.new("SpecialMesh", accPart)
+
+
+local mBlur = Lighting:FindFirstChild("V9_Blur") or Instance.new("BlurEffect", Lighting)
+
+mBlur.Name = "V9_Blur"
+
+
+local lastCF = workspace.CurrentCamera.CFrame
+
+
+RunService.RenderStepped:Connect(function()
+
+    -- Окружение
+
+    if _G.SkyboxEnabled then
+
+        Lighting.OutdoorAmbient = _G.SkyboxColor
+
+        Lighting.Ambient = _G.SkyboxColor
+
+        Lighting.FogColor = _G.SkyboxColor
+
+    else
+
+        Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
+
+        Lighting.Ambient = defaultLighting.Ambient
+
+        Lighting.FogColor = defaultLighting.FogColor
+
+    end
+
+
+    -- Dynamic FOV
+
+    if _G.DynFOV and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+
+        local vel = lp.Character.HumanoidRootPart.Velocity.Magnitude
+
+        local targetFOV = 70 + (vel / 3)
+
+        workspace.CurrentCamera.FieldOfView = workspace.CurrentCamera.FieldOfView + (targetFOV - workspace.CurrentCamera.FieldOfView) * 0.1
+
+    end
+
+
+    -- Блюр
+
+    if _G.BlurEnabled then
+
+        local rel = workspace.CurrentCamera.CFrame:ToObjectSpace(lastCF)
+
+        local _, y, _ = rel:ToEulerAnglesXYZ()
+
+        mBlur.Size = math.clamp(math.abs(y) * (_G.BlurIntensity / 1.5), 0, 60)
+
+    else mBlur.Size = 0 end
+
+    lastCF = workspace.CurrentCamera.CFrame
+
+
+    -- Аксессуар
+
+    if _G.CurrentAcc ~= "None" and lp.Character and lp.Character:FindFirstChild("Head") then
+
+        accPart.Parent = workspace
+
+        accPart.Color = _G.VisualColor
+
+        accPart.CFrame = lp.Character.Head.CFrame * CFrame.new(0, _G.AccY, 0) * CFrame.Angles(0, math.rad(_G.AccRot), 0)
+
+        accMesh.Scale = Vector3.new(_G.AccScale, _G.AccScale, _G.AccScale)
+
+        if _G.CurrentAcc == "Douli" then
+
+            -- НОВОЕ: Заменено на реалистичную бамбуковую шляпу
+
+            accMesh.MeshId = "rbxassetid://16949326"
+
+            accMesh.TextureId = "rbxassetid://16949317"
+
+        elseif _G.CurrentAcc == "Cap" then
+
+            accMesh.MeshId = "rbxassetid://1028713"
+
+            accMesh.TextureId = "" 
+
+        end
+
+    else accPart.Parent = nil end
+
+
+    -- Партиклы (С учетом разброса)
+
+    if not _G.ParticlesEnabled then clearParts() else
+
+        for player, parts in pairs(playerParts) do
+
+            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
+            if root then
+
+                for i, p in pairs(parts) do
+
+                    local t = tick() * _G.ParticleSpeed
+
+                    local ang = t + (i * (math.pi * 2 / #parts))
+
+                    
+
+                    local currentRad = _G.ParticleRadius
+
+                    local yOff = -2 + (i * (_G.ParticleHeight / #parts))
+
+
+                    -- НОВОЕ: Логика разброса (Смещения по X/Z и Y)
+
+                    if _G.ScatteredParticles then
+
+                        currentRad = currentRad + (math.sin(i * 45.3) * (_G.ParticleRadius * 0.8))
+
+                        yOff = math.cos(i * 22.1) * _G.ParticleHeight
+
+                    end
+
+
+                    p.Size = Vector3.new(_G.ParticleStretch, _G.ParticleStretch, _G.ParticleStretch)
+
+                    p.CFrame = CFrame.new(root.Position + Vector3.new(math.cos(ang) * currentRad * _G.ParticleWidth, yOff, math.sin(ang) * currentRad))
+
+                    p.Color = _G.VisualColor
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
+
+-- ПРАВДИВЫЕ ХИТБОКСЫ
+
+task.spawn(function()
+
+    while task.wait(0.3) do
+
+        for _, p in pairs(Players:GetPlayers()) do
+
+            if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+
+                local hrp = p.Character.HumanoidRootPart
+
+                if _G.HitboxEnabled then
+
+                    hrp.Size = Vector3.new(_G.HitboxSize, _G.HitboxSize, _G.HitboxSize)
+
+                    hrp.Transparency = _G.HitboxTrans
+
+                    hrp.Color = _G.VisualColor
+
+                    hrp.CanCollide = false
+
+                else
+
+                    hrp.Size = Vector3.new(2, 2, 1)
+
+                    hrp.Transparency = 1
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
+
+-- Снег
+
+task.spawn(function()
+
+    while true do
+
+        if _G.SnowEnabled and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+
+            local p = Instance.new("Part", workspace)
+
+            p.Size = Vector3.new(_G.SnowSize, _G.SnowSize, _G.SnowSize)
+
+            p.Material = Enum.Material.Neon
+
+            p.Color = _G.SnowColor
+
+            p.CanCollide = false
+
+            p.Position = lp.Character.HumanoidRootPart.Position + Vector3.new(math.random(-60, 60), 40, math.random(-60, 60))
+
+            p.Velocity = Vector3.new(0, -_G.SnowFallSpeed, 0)
+
+            task.delay(3, function() p:Destroy() end)
+
+        end
+
+        task.wait(_G.SnowWait)
+
+    end
+
+end)
+
+
+-- Движение
+
+task.spawn(function()
+
+    while true do
+
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+
+            if lp.Character.HumanoidRootPart.Velocity.Magnitude > 10 then
+
+                createGhost(lp.Character)
+
+                spawnWave(lp.Character)
+
+            end
+
+        end
+
+        task.wait(0.6)
+
+    end
+
+end)
+
+
+-- === [ ИНТЕРФЕЙС ] ===
+
+local Window = Rayfield:CreateWindow({Name = "V9 Visuals: GOD UPDATE"})
+
+
+local MainTab = Window:CreateTab("Главная")
+
+MainTab:CreateToggle({Name = "RGB Режим", CurrentValue = false, Callback = function(v) _G.RGBEnabled = v end})
+
+MainTab:CreateColorPicker({Name = "Цвет эффектов", Color = _G.VisualColor, Callback = function(v) _G.VisualColor = v end})
+
+MainTab:CreateToggle({Name = "Динамический FOV", CurrentValue = false, Callback = function(v) _G.DynFOV = v if not v then workspace.CurrentCamera.FieldOfView = 70 end end})
+
+MainTab:CreateToggle({Name = "Эффекты движения (Волны и Клоны)", CurrentValue = true, Callback = function(v) _G.MovementEffects = v end})
+
+
+MainTab:CreateSection("Размытие")
+
+MainTab:CreateToggle({Name = "Включить Блюр", CurrentValue = true, Callback = function(v) _G.BlurEnabled = v end})
+
+MainTab:CreateSlider({Name = "Сила", Range = {0, 500}, Increment = 10, CurrentValue = 150, Callback = function(v) _G.BlurIntensity = v end})
+
+
+local PartTab = Window:CreateTab("Партиклы")
+
+PartTab:CreateSection("Трейлы")
+
+PartTab:CreateToggle({Name = "Включить Трейлы", CurrentValue = false, Callback = function(v) _G.TrailsEnabled = v end})
+
+PartTab:CreateDropdown({Name = "Части тела", Options = {"Arms", "Legs", "Torso"}, CurrentOption = {"Arms"}, MultipleOptions = true, Callback = function(v) _G.TrailParts = v end})
+
+PartTab:CreateSlider({Name = "Продолжительность", Range = {1, 50}, Increment = 1, CurrentValue = 5, Callback = function(v) _G.TrailLifetime = v/10 end})
+
+PartTab:CreateSlider({Name = "Скорость (сужение хвоста)", Range = {0, 50}, Increment = 1, CurrentValue = 25, Callback = function(v) _G.TrailSpeed = v/100 end})
+
+
+PartTab:CreateSection("Орбитальные партиклы")
+
+PartTab:CreateToggle({Name = "Включить партиклы", CurrentValue = true, Callback = function(v) 
+
+    _G.ParticlesEnabled = v 
+
+    if v then for _, p in pairs(Players:GetPlayers()) do createParts(p) end else clearParts() end
+
+end})
+
+PartTab:CreateToggle({Name = "Разброс партиклов (Хаос)", CurrentValue = false, Callback = function(v) _G.ScatteredParticles = v end}) -- НОВОЕ
+
+PartTab:CreateSlider({Name = "Кол-во (кубиков)", Range = {1, 50}, Increment = 1, CurrentValue = 12, Callback = function(v) 
+
+    _G.ParticleCount = v 
+
+    clearParts() 
+
+    for _, p in pairs(Players:GetPlayers()) do createParts(p) end
+
+end})
+
+PartTab:CreateSlider({Name = "Расстояние", Range = {1, 20}, Increment = 1, CurrentValue = 4, Callback = function(v) _G.ParticleRadius = v end})
+
+PartTab:CreateSlider({Name = "Скорость орбиты", Range = {1, 20}, Increment = 1, CurrentValue = 5, Callback = function(v) _G.ParticleSpeed = v end})
+
+PartTab:CreateSlider({Name = "Высота", Range = {1, 15}, Increment = 1, CurrentValue = 4, Callback = function(v) _G.ParticleHeight = v end})
+
+
+local AccTab = Window:CreateTab("Аксессуары")
+
+AccTab:CreateDropdown({Name = "Выбрать предмет", Options = {"None", "Douli", "Cap"}, CurrentOption = "None", Callback = function(v) _G.CurrentAcc = v end})
+
+AccTab:CreateSlider({Name = "Высота", Range = {-20, 20}, Increment = 1, CurrentValue = 7, Callback = function(v) _G.AccY = v/10 end})
+
+AccTab:CreateSlider({Name = "Размер", Range = {1, 50}, Increment = 1, CurrentValue = 15, Callback = function(v) _G.AccScale = v/10 end})
+
+
+local CombatTab = Window:CreateTab("Бой")
+
+CombatTab:CreateSection("Хитбоксы")
+
+CombatTab:CreateToggle({Name = "Включить хитбоксы", CurrentValue = false, Callback = function(v) _G.HitboxEnabled = v end})
+
+CombatTab:CreateSlider({Name = "Размер", Range = {2, 60}, Increment = 1, CurrentValue = 10, Callback = function(v) _G.HitboxSize = v end})
+
+CombatTab:CreateSlider({Name = "Прозрачность", Range = {0, 100}, Increment = 1, CurrentValue = 70, Callback = function(v) _G.HitboxTrans = v/100 end})
+
+
+CombatTab:CreateSection("ESP")
+
+CombatTab:CreateToggle({Name = "Боксы", CurrentValue = false, Callback = function(v) _G.ESP_Boxes = v end})
+
+CombatTab:CreateToggle({Name = "Трассера", CurrentValue = false, Callback = function(v) _G.ESP_Tracers = v end})
+
+CombatTab:CreateToggle({Name = "Ники", CurrentValue = false, Callback = function(v) _G.ESP_Names = v end})
+
+
+local EnvTab = Window:CreateTab("Окружение")
+
+EnvTab:CreateSection("Окружение")
+
+EnvTab:CreateToggle({Name = "Включить Окружение", CurrentValue = false, Callback = function(v) _G.SkyboxEnabled = v end})
+
+EnvTab:CreateColorPicker({Name = "Цвет Окружения", Color = _G.SkyboxColor, Callback = function(v) _G.SkyboxColor = v end})
+
+
+EnvTab:CreateSection("Снег")
+
+EnvTab:CreateToggle({Name = "Включить снег", CurrentValue = false, Callback = function(v) _G.SnowEnabled = v end})
+
+EnvTab:CreateSlider({Name = "Интенсивность", Range = {1, 100}, Increment = 1, CurrentValue = 10, Callback = function(v) _G.SnowWait = (101 - v) / 100 end})
+
+
+-- Инициализация
+
+for _, p in pairs(Players:GetPlayers()) do createParts(p); createESP(p) end
+
+Players.PlayerAdded:Connect(function(p) createParts(p); createESP(p) end)
+
+lp.CharacterAdded:Connect(addTrail)
+
+if lp.Character then addTrail(lp.Character) end
+
+
+-- RGB Цикл с обновлением реал-тайм клонов/волн
+
+task.spawn(function()
+
+    local h = 0
+
+    while task.wait(0.05) do
+
+        if _G.RGBEnabled then 
+
+            h = (h + 0.01) % 1 
+
+            _G.VisualColor = Color3.fromHSV(h, 0.8, 1) 
+
+            
+
+            -- НОВОЕ: Применяем цвет к активным клонам и волнам в реал-тайме
+
+            for i = #activeRGBObjects, 1, -1 do
+
+                local obj = activeRGBObjects[i]
+
+                if obj and obj.Parent then
+
+                    obj.Color = _G.VisualColor
+
+                else
+
+                    table.remove(activeRGBObjects, i) -- Чистим удаленные
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
